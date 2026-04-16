@@ -32,12 +32,33 @@ export function generateMaze(rows: number, cols: number): { grid: MazeGrid; star
 
   carve(1, 1);
 
+  // Add extra passages to create loops and multiple paths
+  // This makes the maze harder by giving the player misleading route options
+  const extraPassages = Math.floor(rows * cols * 0.08);
+  for (let i = 0; i < extraPassages; i++) {
+    const r = 1 + Math.floor(Math.random() * (rows - 2));
+    const c = 1 + Math.floor(Math.random() * (cols - 2));
+    if (grid[r][c] === 1) {
+      // Only open if it connects two existing paths (creates a loop)
+      let adjacentPaths = 0;
+      for (const d of DIRECTIONS) {
+        const nr = r + d.row;
+        const nc = c + d.col;
+        if (nr > 0 && nr < rows - 1 && nc > 0 && nc < cols - 1 && grid[nr][nc] === 0) {
+          adjacentPaths++;
+        }
+      }
+      if (adjacentPaths >= 2) {
+        grid[r][c] = 0;
+      }
+    }
+  }
+
   // Ensure exit is open
   grid[exit.row][exit.col] = 0;
 
   // Ensure path to exit exists by checking BFS, if not open a corridor
   if (!bfs(grid, start, exit)) {
-    // Brute force open path
     let r = exit.row, c = exit.col;
     while (r > start.row) { grid[r][c] = 0; r--; }
     while (c > start.col) { grid[r][c] = 0; c--; }
