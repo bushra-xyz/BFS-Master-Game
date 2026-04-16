@@ -36,12 +36,12 @@
 
     --radius: 0.75rem;
 
-    --maze-wall: 230 20% 8%;
-    --maze-path: 230 15% 18%;
-    --maze-start: 150 80% 50%;
-    --maze-exit: 0 75% 55%;
+    --maze-wall: 230 30% 12%;
+    --maze-path: 220 15% 32%;
+    --maze-start: 150 85% 45%;
+    --maze-exit: 0 80% 55%;
     --maze-player: 45 100% 60%;
-    --maze-visited: 190 90% 55%;
+    --maze-visited: 190 90% 45%;
     --maze-shortest: 50 100% 55%;
 
     --sidebar-background: 0 0% 98%;
