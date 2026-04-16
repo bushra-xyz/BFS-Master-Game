@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        display: ['Press Start 2P', 'monospace'],
+        body: ['JetBrains Mono', 'monospace'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -46,6 +50,15 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        maze: {
+          wall: "hsl(var(--maze-wall))",
+          path: "hsl(var(--maze-path))",
+          start: "hsl(var(--maze-start))",
+          exit: "hsl(var(--maze-exit))",
+          player: "hsl(var(--maze-player))",
+          visited: "hsl(var(--maze-visited))",
+          shortest: "hsl(var(--maze-shortest))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
