@@ -6,7 +6,7 @@ import GameStats from "./GameStats";
 import { Button } from "@/components/ui/button";
 import { RotateCcw, Shuffle, Cpu } from "lucide-react";
 
-const MAZE_SIZE = 15; // Must be odd for maze gen
+const MAZE_SIZE = 21; // Must be odd for maze gen
 
 export default function MazeGame() {
   const [mazeData, setMazeData] = useState(() => generateMaze(MAZE_SIZE, MAZE_SIZE));
