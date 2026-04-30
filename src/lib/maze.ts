@@ -32,14 +32,14 @@ export function generateMaze(rows: number, cols: number): { grid: MazeGrid; star
 
   carve(1, 1);
 
-  // Add extra passages to create loops and multiple paths
-  // This makes the maze harder by giving the player misleading route options
-  const extraPassages = Math.floor(rows * cols * 0.08);
+  // Add many extra passages to create loops, branches and misleading routes.
+  // Higher density + lower adjacency requirement => more decision points where
+  // multiple plausible routes diverge, so the BFS shortest path isn't obvious.
+  const extraPassages = Math.floor(rows * cols * 0.22);
   for (let i = 0; i < extraPassages; i++) {
     const r = 1 + Math.floor(Math.random() * (rows - 2));
     const c = 1 + Math.floor(Math.random() * (cols - 2));
     if (grid[r][c] === 1) {
-      // Only open if it connects two existing paths (creates a loop)
       let adjacentPaths = 0;
       for (const d of DIRECTIONS) {
         const nr = r + d.row;
@@ -48,9 +48,26 @@ export function generateMaze(rows: number, cols: number): { grid: MazeGrid; star
           adjacentPaths++;
         }
       }
-      if (adjacentPaths >= 2) {
+      // Allow opening with just 1 neighbor sometimes (creates dead-end branches
+      // that look promising), and always open with 2+ (creates loops).
+      if (adjacentPaths >= 2 || (adjacentPaths === 1 && Math.random() < 0.5)) {
         grid[r][c] = 0;
       }
+    }
+  }
+
+  // Second pass: punch a few random "shortcut walls" near the diagonal
+  // between start and exit to create tempting alternate routes of similar length.
+  const shortcuts = Math.floor((rows + cols) * 0.6);
+  for (let i = 0; i < shortcuts; i++) {
+    const r = 2 + Math.floor(Math.random() * (rows - 4));
+    const c = 2 + Math.floor(Math.random() * (cols - 4));
+    if (grid[r][c] === 1) {
+      let adjacentPaths = 0;
+      for (const d of DIRECTIONS) {
+        if (grid[r + d.row][c + d.col] === 0) adjacentPaths++;
+      }
+      if (adjacentPaths >= 2) grid[r][c] = 0;
     }
   }
 
