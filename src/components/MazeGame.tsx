@@ -199,6 +199,10 @@ export default function MazeGame() {
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-maze-visited inline-block" /> BFS Visited</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-maze-shortest inline-block" /> Shortest Path</span>
       </div>
+
+      <footer className="mt-4 text-xs sm:text-sm text-muted-foreground font-display tracking-wider">
+        Developed by <span className="text-primary">Bushra</span>
+      </footer>
     </div>
   );
 }
