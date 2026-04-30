@@ -155,7 +155,7 @@ export default function MazeGame() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-4">
       <h1 className="font-display text-lg sm:text-2xl text-primary tracking-wider">
-        BFS VS YOU 🔥
+        Can you match the BFS?
       </h1>
 
       {winMessage && (
