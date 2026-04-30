@@ -1,3 +1,3 @@
-# Welcome to your Bushra's World
+# Welcome to Bushra's Algorithmic World 
 
 TODO: Document your project here
