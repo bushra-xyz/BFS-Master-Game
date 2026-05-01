@@ -201,7 +201,7 @@ export default function MazeGame() {
       </div>
 
       <footer className="mt-4 text-xs sm:text-sm text-muted-foreground font-display tracking-wider">
-        Developed by <span className="text-primary">Bushra</span>
+        Developed by <span className="text-primary">Bushra Jannat and Miftahul Jannat</span>
       </footer>
     </div>
   );
