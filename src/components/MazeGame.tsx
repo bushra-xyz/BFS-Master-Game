@@ -200,13 +200,13 @@ export default function MazeGame() {
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-maze-shortest inline-block" /> Shortest Path</span>
       </div>
 
-      <footer className="mt-6 text-[10px] sm:text-xs font-display tracking-[0.25em] uppercase text-accent/70 italic text-center">
+      <footer className="mt-6 text-[10px] sm:text-xs font-display tracking-[0.25em] uppercase italic text-center text-accent drop-shadow-[0_0_8px_hsl(var(--accent)/0.5)]">
         ⟡ Developed by{" "}
-        <span className="bg-gradient-to-r from-accent via-primary to-secondary bg-clip-text text-transparent font-semibold not-italic">
+        <span className="font-bold not-italic text-primary drop-shadow-[0_0_10px_hsl(var(--primary)/0.7)]">
           Bushra Jannat
         </span>
         {" "}&{" "}
-        <span className="bg-gradient-to-r from-secondary via-primary to-accent bg-clip-text text-transparent font-semibold not-italic">
+        <span className="font-bold not-italic text-secondary drop-shadow-[0_0_10px_hsl(var(--secondary)/0.7)]">
           Miftahul Jannat
         </span>
         {" "}⟡
