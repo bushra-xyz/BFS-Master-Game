@@ -79,7 +79,7 @@ export default function MazeGame() {
     if (playerSteps === bfsLen) {
       setWinMessage("Perfect 🔥 I see you have conquered the BFS 👀💪");
     } else {
-      setWinMessage(`Oops! 😔 BFS found a shorter path (${bfsLen} steps). Try smarter this time ❗`);
+      setWinMessage(`Oops! 💔 BFS found a shorter path (${bfsLen} steps). Try smarter this time ❗`);
     }
   }
 
