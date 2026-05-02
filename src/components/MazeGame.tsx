@@ -77,7 +77,7 @@ export default function MazeGame() {
     const s = calculateScore(playerSteps, bfsLen, time);
     setScore(s);
     if (playerSteps === bfsLen) {
-      setWinMessage("Perfect ! I see you have conquered the BFS 👀💪");
+      setWinMessage("Perfect 🔥 I see you have conquered the BFS 👀💪");
     } else {
       setWinMessage(`🎉 Good Job! But BFS found a shorter path (${bfsLen} steps). Try harder next time!`);
     }
