@@ -13,24 +13,10 @@ export function generateMaze(rows: number, cols: number): { grid: MazeGrid; star
   // Start with all walls
   const grid: MazeGrid = Array.from({ length: rows }, () => Array(cols).fill(1) as CellType[]);
 
-  // Randomize start and exit on opposite corners/edges to vary BFS path length each maze
-  const corners: Position[] = [
-    { row: 1, col: 1 },
-    { row: 1, col: cols - 2 },
-    { row: rows - 2, col: 1 },
-    { row: rows - 2, col: cols - 2 },
-  ];
-  const startIdx = Math.floor(Math.random() * 4);
-  const start: Position = corners[startIdx];
-  // Pick the diagonally opposite corner, then jitter along its edges so the
-  // optimal BFS distance differs between mazes.
-  const opposite = corners[3 - startIdx];
-  const jitterRow = 1 + Math.floor(Math.random() * (rows - 2));
-  const jitterCol = 1 + Math.floor(Math.random() * (cols - 2));
-  const exit: Position =
-    Math.random() < 0.5
-      ? { row: opposite.row, col: jitterCol }
-      : { row: jitterRow, col: opposite.col };
+  // Keep start and exit fixed at opposite corners; only the carved maze layout
+  // changes between generations.
+  const start: Position = { row: 1, col: 1 };
+  const exit: Position = { row: rows - 2, col: cols - 2 };
 
   // Recursive backtracker to carve maze
   function carve(r: number, c: number) {
