@@ -126,6 +126,117 @@ export function bfs(
   return null;
 }
 
+export function dfs(
+  grid: MazeGrid,
+  start: Position,
+  end: Position
+): { visited: Position[]; path: Position[] } | null {
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const visited: boolean[][] = Array.from({ length: rows }, () => Array(cols).fill(false));
+  const parent: (Position | null)[][] = Array.from({ length: rows }, () => Array(cols).fill(null));
+  const stack: Position[] = [start];
+  visited[start.row][start.col] = true;
+  const visitOrder: Position[] = [];
+
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    visitOrder.push(current);
+
+    if (current.row === end.row && current.col === end.col) {
+      const path: Position[] = [];
+      let cur: Position | null = current;
+      while (cur) {
+        path.unshift(cur);
+        cur = parent[cur.row][cur.col];
+      }
+      return { visited: visitOrder, path };
+    }
+
+    for (const d of DIRECTIONS) {
+      const nr = current.row + d.row;
+      const nc = current.col + d.col;
+      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !visited[nr][nc] && grid[nr][nc] === 0) {
+        visited[nr][nc] = true;
+        parent[nr][nc] = current;
+        stack.push({ row: nr, col: nc });
+      }
+    }
+  }
+
+  return null;
+}
+
+export type BfsStep = {
+  dequeued: Position;
+  added: Position[];
+  skipped: Position[];
+  queueAfter: Position[];
+  found: boolean;
+};
+
+export function bfsSteps(
+  grid: MazeGrid,
+  start: Position,
+  end: Position
+): { steps: BfsStep[]; path: Position[] } | null {
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const visited: boolean[][] = Array.from({ length: rows }, () => Array(cols).fill(false));
+  const parent: (Position | null)[][] = Array.from({ length: rows }, () => Array(cols).fill(null));
+  const queue: Position[] = [start];
+  visited[start.row][start.col] = true;
+  const steps: BfsStep[] = [];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const added: Position[] = [];
+    const skipped: Position[] = [];
+    let found = current.row === end.row && current.col === end.col;
+
+    if (!found) {
+      for (const d of DIRECTIONS) {
+        const nr = current.row + d.row;
+        const nc = current.col + d.col;
+        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+        if (grid[nr][nc] === 1 || visited[nr][nc]) {
+          if (grid[nr][nc] === 0) skipped.push({ row: nr, col: nc });
+          continue;
+        }
+        visited[nr][nc] = true;
+        parent[nr][nc] = current;
+        const np = { row: nr, col: nc };
+        queue.push(np);
+        added.push(np);
+        if (nr === end.row && nc === end.col) found = true;
+      }
+    }
+
+    steps.push({
+      dequeued: current,
+      added,
+      skipped,
+      queueAfter: [...queue],
+      found,
+    });
+
+    if (found) {
+      // Reconstruct path from end
+      const path: Position[] = [];
+      let cur: Position | null = end;
+      // If end was just added in this step, parent is set; if it was the dequeued, parent chain handles it
+      if (!visited[end.row][end.col]) return null;
+      while (cur) {
+        path.unshift(cur);
+        cur = parent[cur.row][cur.col];
+      }
+      return { steps, path };
+    }
+  }
+
+  return null;
+}
+
 export function calculateScore(playerSteps: number, bfsSteps: number, timeSeconds: number): number {
   const efficiency = Math.max(0, (bfsSteps / Math.max(playerSteps, 1)) * 100);
   const timeBonus = Math.max(0, 100 - timeSeconds * 2);
