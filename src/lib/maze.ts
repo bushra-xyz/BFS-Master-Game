@@ -13,8 +13,24 @@ export function generateMaze(rows: number, cols: number): { grid: MazeGrid; star
   // Start with all walls
   const grid: MazeGrid = Array.from({ length: rows }, () => Array(cols).fill(1) as CellType[]);
 
-  const start: Position = { row: 1, col: 1 };
-  const exit: Position = { row: rows - 2, col: cols - 2 };
+  // Randomize start and exit on opposite corners/edges to vary BFS path length each maze
+  const corners: Position[] = [
+    { row: 1, col: 1 },
+    { row: 1, col: cols - 2 },
+    { row: rows - 2, col: 1 },
+    { row: rows - 2, col: cols - 2 },
+  ];
+  const startIdx = Math.floor(Math.random() * 4);
+  const start: Position = corners[startIdx];
+  // Pick the diagonally opposite corner, then jitter along its edges so the
+  // optimal BFS distance differs between mazes.
+  const opposite = corners[3 - startIdx];
+  const jitterRow = 1 + Math.floor(Math.random() * (rows - 2));
+  const jitterCol = 1 + Math.floor(Math.random() * (cols - 2));
+  const exit: Position =
+    Math.random() < 0.5
+      ? { row: opposite.row, col: jitterCol }
+      : { row: jitterRow, col: opposite.col };
 
   // Recursive backtracker to carve maze
   function carve(r: number, c: number) {
@@ -30,7 +46,7 @@ export function generateMaze(rows: number, cols: number): { grid: MazeGrid; star
     }
   }
 
-  carve(1, 1);
+  carve(start.row, start.col);
 
   // Add many extra passages to create loops, branches and misleading routes.
   // Higher density + lower adjacency requirement => more decision points where
@@ -74,11 +90,12 @@ export function generateMaze(rows: number, cols: number): { grid: MazeGrid; star
   // Ensure exit is open
   grid[exit.row][exit.col] = 0;
 
-  // Ensure path to exit exists by checking BFS, if not open a corridor
+  // Ensure path to exit exists by checking BFS, if not carve a corridor between them
   if (!bfs(grid, start, exit)) {
-    let r = exit.row, c = exit.col;
-    while (r > start.row) { grid[r][c] = 0; r--; }
-    while (c > start.col) { grid[r][c] = 0; c--; }
+    let r = start.row, c = start.col;
+    while (r !== exit.row) { grid[r][c] = 0; r += r < exit.row ? 1 : -1; }
+    while (c !== exit.col) { grid[r][c] = 0; c += c < exit.col ? 1 : -1; }
+    grid[exit.row][exit.col] = 0;
   }
 
   return { grid, start, exit };
