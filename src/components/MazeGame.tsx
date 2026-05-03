@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { generateMaze, bfs, dfs, bfsSteps, calculateScore, Position, BfsStep } from "@/lib/maze";
+import { generateMaze, bfs, dfs, calculateScore, Position } from "@/lib/maze";
 import MazeGrid from "./MazeGrid";
 import GameControls from "./GameControls";
 import GameStats from "./GameStats";
-import QueueVisualizer from "./QueueVisualizer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { RotateCcw, Shuffle, Cpu, GitCompare } from "lucide-react";
@@ -32,16 +31,8 @@ export default function MazeGame() {
   const [winMessage, setWinMessage] = useState("");
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
 
-  // BFS step-mode state
-  const [bfsStepData, setBfsStepData] = useState<BfsStep[] | null>(null);
-  const [bfsFinalPath, setBfsFinalPath] = useState<Position[]>([]);
-  const [currentBfsStep, setCurrentBfsStep] = useState(0);
-  const [bfsPlaying, setBfsPlaying] = useState(false);
-  const [bfsSpeed, setBfsSpeed] = useState(80);
-
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const animTimeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const playInterval = useRef<ReturnType<typeof setInterval>>();
 
   // Timer
   useEffect(() => {
@@ -105,15 +96,10 @@ export default function MazeGame() {
   function clearAnims() {
     animTimeouts.current.forEach(clearTimeout);
     animTimeouts.current = [];
-    if (playInterval.current) {
-      clearInterval(playInterval.current);
-      playInterval.current = undefined;
-    }
     setBfsRunning(false);
-    setBfsPlaying(false);
   }
 
-  function resetState(keepMaze: boolean, mazeOverride?: typeof mazeData) {
+  function resetState(mazeOverride?: typeof mazeData) {
     clearAnims();
     const m = mazeOverride ?? mazeData;
     setPlayer(m.start);
@@ -127,105 +113,58 @@ export default function MazeGame() {
     setDfsVisited(new Set());
     setShortestPath(new Set());
     setCompareResult(null);
-    setBfsStepData(null);
-    setBfsFinalPath([]);
-    setCurrentBfsStep(0);
   }
 
   function resetLevel() {
-    resetState(true);
+    resetState();
   }
 
   function newMaze() {
     const data = generateMaze(MAZE_SIZE, MAZE_SIZE);
     setMazeData(data);
-    resetState(false, data);
+    resetState(data);
   }
 
-  // ---------- Step-based BFS visualization ----------
-  function startBfsStepMode() {
+  function solveBfs() {
+    if (bfsRunning) return;
     clearAnims();
     setVisitedCells(new Set());
     setDfsVisited(new Set());
     setShortestPath(new Set());
     setCompareResult(null);
-
-    const result = bfsSteps(mazeData.grid, mazeData.start, mazeData.exit);
-    if (!result) return;
-
-    setBfsStepData(result.steps);
-    setBfsFinalPath(result.path);
-    setCurrentBfsStep(0);
-    setBfsLength(result.path.length - 1);
     setBfsRunning(true);
-    setBfsPlaying(true);
-    // Seed first cell
-    setVisitedCells(new Set([`${result.steps[0].dequeued.row},${result.steps[0].dequeued.col}`]));
-  }
 
-  // Drive playback
-  useEffect(() => {
-    if (!bfsPlaying || !bfsStepData) return;
-    playInterval.current = setInterval(() => {
-      setCurrentBfsStep((s) => {
-        if (s >= bfsStepData.length - 1) {
-          if (playInterval.current) clearInterval(playInterval.current);
-          setBfsPlaying(false);
-          return s;
-        }
-        return s + 1;
-      });
-    }, bfsSpeed);
-    return () => {
-      if (playInterval.current) clearInterval(playInterval.current);
-    };
-  }, [bfsPlaying, bfsSpeed, bfsStepData]);
-
-  // Update visited cells & path as step changes
-  useEffect(() => {
-    if (!bfsStepData) return;
-    const set = new Set<string>();
-    for (let i = 0; i <= currentBfsStep; i++) {
-      const st = bfsStepData[i];
-      set.add(`${st.dequeued.row},${st.dequeued.col}`);
-      st.added.forEach((p) => set.add(`${p.row},${p.col}`));
+    const result = bfs(mazeData.grid, mazeData.start, mazeData.exit);
+    if (!result) {
+      setBfsRunning(false);
+      return;
     }
-    setVisitedCells(set);
+    const { visited, path } = result;
+    setBfsLength(path.length - 1);
 
-    // When done, reveal shortest path
-    if (currentBfsStep >= bfsStepData.length - 1 && bfsFinalPath.length > 0) {
-      bfsFinalPath.forEach((p, i) => {
-        const t = setTimeout(() => {
-          setShortestPath((prev) => new Set(prev).add(`${p.row},${p.col}`));
-          if (i === bfsFinalPath.length - 1) setBfsRunning(false);
-        }, i * 50);
-        animTimeouts.current.push(t);
-      });
-    }
-  }, [currentBfsStep, bfsStepData, bfsFinalPath]);
+    visited.forEach((pos, i) => {
+      const t = setTimeout(() => {
+        setVisitedCells((prev) => new Set(prev).add(`${pos.row},${pos.col}`));
+      }, i * 25);
+      animTimeouts.current.push(t);
+    });
 
-  function closeVisualizer() {
-    clearAnims();
-    setBfsStepData(null);
-    setBfsFinalPath([]);
-    setCurrentBfsStep(0);
-    setShortestPath(new Set());
-    setVisitedCells(new Set());
+    const pathStart = visited.length * 25 + 200;
+    path.forEach((pos, i) => {
+      const t = setTimeout(() => {
+        setShortestPath((prev) => new Set(prev).add(`${pos.row},${pos.col}`));
+        if (i === path.length - 1) setBfsRunning(false);
+      }, pathStart + i * 50);
+      animTimeouts.current.push(t);
+    });
   }
 
-  function stepForward() {
-    if (!bfsStepData) return;
-    setCurrentBfsStep((s) => Math.min(s + 1, bfsStepData.length - 1));
-  }
-
-  // ---------- Compare BFS vs DFS ----------
   function compareBfsDfs() {
     clearAnims();
     setVisitedCells(new Set());
     setDfsVisited(new Set());
     setShortestPath(new Set());
     setCompareResult(null);
-    setBfsStepData(null);
     setBfsRunning(true);
 
     const bfsRes = bfs(mazeData.grid, mazeData.start, mazeData.exit);
@@ -287,7 +226,7 @@ export default function MazeGame() {
 
       <GameStats steps={steps} time={time} bfsLength={bfsLength} score={score} />
 
-      {bfsLength !== null && steps > 0 && !compareResult && !bfsStepData && (
+      {bfsLength !== null && steps > 0 && !compareResult && (
         <div className="w-full max-w-md bg-card border border-border rounded-lg p-4 space-y-3">
           <div className="font-display text-xs sm:text-sm tracking-wider text-center text-accent">
             ⚔ You vs BFS ⚔
@@ -332,31 +271,15 @@ export default function MazeGame() {
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row gap-4 items-start justify-center">
-        <MazeGrid
-          grid={mazeData.grid}
-          start={mazeData.start}
-          exit={mazeData.exit}
-          player={player}
-          visitedCells={visitedCells}
-          dfsVisited={dfsVisited}
-          shortestPath={shortestPath}
-          highlightCell={bfsStepData ? bfsStepData[currentBfsStep]?.dequeued ?? null : null}
-        />
-
-        {bfsStepData && (
-          <QueueVisualizer
-            steps={bfsStepData}
-            currentStep={currentBfsStep}
-            isPlaying={bfsPlaying}
-            speedMs={bfsSpeed}
-            onPlayPause={() => setBfsPlaying((p) => !p)}
-            onStep={stepForward}
-            onSpeedChange={setBfsSpeed}
-            onClose={closeVisualizer}
-          />
-        )}
-      </div>
+      <MazeGrid
+        grid={mazeData.grid}
+        start={mazeData.start}
+        exit={mazeData.exit}
+        player={player}
+        visitedCells={visitedCells}
+        dfsVisited={dfsVisited}
+        shortestPath={shortestPath}
+      />
 
       {compareResult && (
         <Card className="w-full max-w-md p-4 space-y-3 bg-card border-border">
@@ -382,7 +305,7 @@ export default function MazeGame() {
       <GameControls onMove={move} disabled={won || bfsRunning} />
 
       <div className="flex flex-wrap gap-3 justify-center">
-        <Button onClick={startBfsStepMode} disabled={bfsRunning} variant="outline" className="border-accent/40 text-accent hover:bg-accent/20">
+        <Button onClick={solveBfs} disabled={bfsRunning} variant="outline" className="border-accent/40 text-accent hover:bg-accent/20">
           <Cpu className="h-4 w-4 mr-2" />
           Solve with BFS
         </Button>
