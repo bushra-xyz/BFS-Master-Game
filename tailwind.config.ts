@@ -58,6 +58,8 @@ export default {
           exit: "hsl(var(--maze-exit))",
           player: "hsl(var(--maze-player))",
           visited: "hsl(var(--maze-visited))",
+          dfs: "hsl(var(--maze-dfs))",
+          both: "hsl(var(--maze-both))",
           shortest: "hsl(var(--maze-shortest))",
         },
         sidebar: {
