@@ -46,7 +46,7 @@ export function generateMaze(rows: number, cols: number): { grid: MazeGrid; star
     }
   }
 
-  carve(1, 1);
+  carve(start.row, start.col);
 
   // Add many extra passages to create loops, branches and misleading routes.
   // Higher density + lower adjacency requirement => more decision points where
