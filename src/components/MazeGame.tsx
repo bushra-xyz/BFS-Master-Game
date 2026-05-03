@@ -1,12 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { generateMaze, bfs, calculateScore, Position } from "@/lib/maze";
+import { generateMaze, bfs, dfs, bfsSteps, calculateScore, Position, BfsStep } from "@/lib/maze";
 import MazeGrid from "./MazeGrid";
 import GameControls from "./GameControls";
 import GameStats from "./GameStats";
+import QueueVisualizer from "./QueueVisualizer";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Shuffle, Cpu } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { RotateCcw, Shuffle, Cpu, GitCompare } from "lucide-react";
 
-const MAZE_SIZE = 21; // Must be odd for maze gen
+const MAZE_SIZE = 21;
+
+type CompareResult = {
+  bfsVisited: number;
+  dfsVisited: number;
+  bfsPath: number;
+  dfsPath: number;
+};
 
 export default function MazeGame() {
   const [mazeData, setMazeData] = useState(() => generateMaze(MAZE_SIZE, MAZE_SIZE));
@@ -17,11 +26,22 @@ export default function MazeGame() {
   const [score, setScore] = useState<number | null>(null);
   const [bfsLength, setBfsLength] = useState<number | null>(null);
   const [visitedCells, setVisitedCells] = useState<Set<string>>(new Set());
+  const [dfsVisited, setDfsVisited] = useState<Set<string>>(new Set());
   const [shortestPath, setShortestPath] = useState<Set<string>>(new Set());
   const [bfsRunning, setBfsRunning] = useState(false);
   const [winMessage, setWinMessage] = useState("");
+  const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
+
+  // BFS step-mode state
+  const [bfsStepData, setBfsStepData] = useState<BfsStep[] | null>(null);
+  const [bfsFinalPath, setBfsFinalPath] = useState<Position[]>([]);
+  const [currentBfsStep, setCurrentBfsStep] = useState(0);
+  const [bfsPlaying, setBfsPlaying] = useState(false);
+  const [bfsSpeed, setBfsSpeed] = useState(80);
+
   const timerRef = useRef<ReturnType<typeof setInterval>>();
-  const bfsTimeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const animTimeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const playInterval = useRef<ReturnType<typeof setInterval>>();
 
   // Timer
   useEffect(() => {
@@ -58,7 +78,6 @@ export default function MazeGame() {
         if (mazeData.grid[nr][nc] === 1) return p;
         const newPos = { row: nr, col: nc };
         setSteps((s) => s + 1);
-        // Check win
         if (nr === mazeData.exit.row && nc === mazeData.exit.col) {
           handleWin(steps + 1);
         }
@@ -83,9 +102,21 @@ export default function MazeGame() {
     }
   }
 
-  function resetLevel() {
-    clearBfs();
-    setPlayer(mazeData.start);
+  function clearAnims() {
+    animTimeouts.current.forEach(clearTimeout);
+    animTimeouts.current = [];
+    if (playInterval.current) {
+      clearInterval(playInterval.current);
+      playInterval.current = undefined;
+    }
+    setBfsRunning(false);
+    setBfsPlaying(false);
+  }
+
+  function resetState(keepMaze: boolean, mazeOverride?: typeof mazeData) {
+    clearAnims();
+    const m = mazeOverride ?? mazeData;
+    setPlayer(m.start);
     setSteps(0);
     setTime(0);
     setWon(false);
@@ -93,64 +124,154 @@ export default function MazeGame() {
     setBfsLength(null);
     setWinMessage("");
     setVisitedCells(new Set());
+    setDfsVisited(new Set());
     setShortestPath(new Set());
+    setCompareResult(null);
+    setBfsStepData(null);
+    setBfsFinalPath([]);
+    setCurrentBfsStep(0);
+  }
+
+  function resetLevel() {
+    resetState(true);
   }
 
   function newMaze() {
-    clearBfs();
     const data = generateMaze(MAZE_SIZE, MAZE_SIZE);
     setMazeData(data);
-    setPlayer(data.start);
-    setSteps(0);
-    setTime(0);
-    setWon(false);
-    setScore(null);
-    setBfsLength(null);
-    setWinMessage("");
-    setVisitedCells(new Set());
-    setShortestPath(new Set());
+    resetState(false, data);
   }
 
-  function clearBfs() {
-    bfsTimeouts.current.forEach(clearTimeout);
-    bfsTimeouts.current = [];
-    setBfsRunning(false);
+  // ---------- Step-based BFS visualization ----------
+  function startBfsStepMode() {
+    clearAnims();
+    setVisitedCells(new Set());
+    setDfsVisited(new Set());
+    setShortestPath(new Set());
+    setCompareResult(null);
+
+    const result = bfsSteps(mazeData.grid, mazeData.start, mazeData.exit);
+    if (!result) return;
+
+    setBfsStepData(result.steps);
+    setBfsFinalPath(result.path);
+    setCurrentBfsStep(0);
+    setBfsLength(result.path.length - 1);
+    setBfsRunning(true);
+    setBfsPlaying(true);
+    // Seed first cell
+    setVisitedCells(new Set([`${result.steps[0].dequeued.row},${result.steps[0].dequeued.col}`]));
   }
 
-  function solveBfs() {
-    if (bfsRunning) return;
-    clearBfs();
-    setVisitedCells(new Set());
+  // Drive playback
+  useEffect(() => {
+    if (!bfsPlaying || !bfsStepData) return;
+    playInterval.current = setInterval(() => {
+      setCurrentBfsStep((s) => {
+        if (s >= bfsStepData.length - 1) {
+          if (playInterval.current) clearInterval(playInterval.current);
+          setBfsPlaying(false);
+          return s;
+        }
+        return s + 1;
+      });
+    }, bfsSpeed);
+    return () => {
+      if (playInterval.current) clearInterval(playInterval.current);
+    };
+  }, [bfsPlaying, bfsSpeed, bfsStepData]);
+
+  // Update visited cells & path as step changes
+  useEffect(() => {
+    if (!bfsStepData) return;
+    const set = new Set<string>();
+    for (let i = 0; i <= currentBfsStep; i++) {
+      const st = bfsStepData[i];
+      set.add(`${st.dequeued.row},${st.dequeued.col}`);
+      st.added.forEach((p) => set.add(`${p.row},${p.col}`));
+    }
+    setVisitedCells(set);
+
+    // When done, reveal shortest path
+    if (currentBfsStep >= bfsStepData.length - 1 && bfsFinalPath.length > 0) {
+      bfsFinalPath.forEach((p, i) => {
+        const t = setTimeout(() => {
+          setShortestPath((prev) => new Set(prev).add(`${p.row},${p.col}`));
+          if (i === bfsFinalPath.length - 1) setBfsRunning(false);
+        }, i * 50);
+        animTimeouts.current.push(t);
+      });
+    }
+  }, [currentBfsStep, bfsStepData, bfsFinalPath]);
+
+  function closeVisualizer() {
+    clearAnims();
+    setBfsStepData(null);
+    setBfsFinalPath([]);
+    setCurrentBfsStep(0);
     setShortestPath(new Set());
+    setVisitedCells(new Set());
+  }
+
+  function stepForward() {
+    if (!bfsStepData) return;
+    setCurrentBfsStep((s) => Math.min(s + 1, bfsStepData.length - 1));
+  }
+
+  // ---------- Compare BFS vs DFS ----------
+  function compareBfsDfs() {
+    clearAnims();
+    setVisitedCells(new Set());
+    setDfsVisited(new Set());
+    setShortestPath(new Set());
+    setCompareResult(null);
+    setBfsStepData(null);
     setBfsRunning(true);
 
-    const result = bfs(mazeData.grid, mazeData.start, mazeData.exit);
-    if (!result) {
+    const bfsRes = bfs(mazeData.grid, mazeData.start, mazeData.exit);
+    const dfsRes = dfs(mazeData.grid, mazeData.start, mazeData.exit);
+    if (!bfsRes || !dfsRes) {
       setBfsRunning(false);
       return;
     }
+    setBfsLength(bfsRes.path.length - 1);
 
-    const { visited, path } = result;
-    setBfsLength(path.length - 1);
-
-    // Animate visited
-    visited.forEach((pos, i) => {
+    const speed = 25;
+    bfsRes.visited.forEach((pos, i) => {
       const t = setTimeout(() => {
         setVisitedCells((prev) => new Set(prev).add(`${pos.row},${pos.col}`));
-      }, i * 25);
-      bfsTimeouts.current.push(t);
+      }, i * speed);
+      animTimeouts.current.push(t);
+    });
+    dfsRes.visited.forEach((pos, i) => {
+      const t = setTimeout(() => {
+        setDfsVisited((prev) => new Set(prev).add(`${pos.row},${pos.col}`));
+      }, i * speed);
+      animTimeouts.current.push(t);
     });
 
-    // Animate path after visited
-    const pathStart = visited.length * 25 + 200;
-    path.forEach((pos, i) => {
-      const t = setTimeout(() => {
-        setShortestPath((prev) => new Set(prev).add(`${pos.row},${pos.col}`));
-        if (i === path.length - 1) setBfsRunning(false);
-      }, pathStart + i * 50);
-      bfsTimeouts.current.push(t);
-    });
+    const longest = Math.max(bfsRes.visited.length, dfsRes.visited.length);
+    const finishAt = longest * speed + 200;
+    const t = setTimeout(() => {
+      setCompareResult({
+        bfsVisited: bfsRes.visited.length,
+        dfsVisited: dfsRes.visited.length,
+        bfsPath: bfsRes.path.length - 1,
+        dfsPath: dfsRes.path.length - 1,
+      });
+      setBfsRunning(false);
+    }, finishAt);
+    animTimeouts.current.push(t);
   }
+
+  const verdict = (() => {
+    if (!compareResult) return "";
+    const { bfsVisited, dfsVisited, bfsPath, dfsPath } = compareResult;
+    if (bfsPath < dfsPath) return "BFS found a shorter path using fewer steps.";
+    if (dfsPath < bfsPath) return "DFS surprisingly found a shorter path here.";
+    if (dfsVisited < bfsVisited) return "Tie on path length — DFS explored fewer cells but took a longer route exploration.";
+    return "Both algorithms tied on path length and exploration.";
+  })();
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-4">
@@ -166,7 +287,7 @@ export default function MazeGame() {
 
       <GameStats steps={steps} time={time} bfsLength={bfsLength} score={score} />
 
-      {bfsLength !== null && steps > 0 && (
+      {bfsLength !== null && steps > 0 && !compareResult && !bfsStepData && (
         <div className="w-full max-w-md bg-card border border-border rounded-lg p-4 space-y-3">
           <div className="font-display text-xs sm:text-sm tracking-wider text-center text-accent">
             ⚔ You vs BFS ⚔
@@ -211,21 +332,63 @@ export default function MazeGame() {
         </div>
       )}
 
-      <MazeGrid
-        grid={mazeData.grid}
-        start={mazeData.start}
-        exit={mazeData.exit}
-        player={player}
-        visitedCells={visitedCells}
-        shortestPath={shortestPath}
-      />
+      <div className="flex flex-col lg:flex-row gap-4 items-start justify-center">
+        <MazeGrid
+          grid={mazeData.grid}
+          start={mazeData.start}
+          exit={mazeData.exit}
+          player={player}
+          visitedCells={visitedCells}
+          dfsVisited={dfsVisited}
+          shortestPath={shortestPath}
+          highlightCell={bfsStepData ? bfsStepData[currentBfsStep]?.dequeued ?? null : null}
+        />
+
+        {bfsStepData && (
+          <QueueVisualizer
+            steps={bfsStepData}
+            currentStep={currentBfsStep}
+            isPlaying={bfsPlaying}
+            speedMs={bfsSpeed}
+            onPlayPause={() => setBfsPlaying((p) => !p)}
+            onStep={stepForward}
+            onSpeedChange={setBfsSpeed}
+            onClose={closeVisualizer}
+          />
+        )}
+      </div>
+
+      {compareResult && (
+        <Card className="w-full max-w-md p-4 space-y-3 bg-card border-border">
+          <div className="font-display text-xs sm:text-sm tracking-wider text-center text-accent">
+            ⟦ BFS vs DFS ⟧
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-md border border-maze-visited/40 p-2 space-y-1">
+              <div className="text-[10px] uppercase tracking-wider text-maze-visited font-bold">BFS</div>
+              <div className="text-xs text-muted-foreground">Visited: <span className="text-foreground font-bold">{compareResult.bfsVisited}</span></div>
+              <div className="text-xs text-muted-foreground">Path: <span className="text-foreground font-bold">{compareResult.bfsPath}</span></div>
+            </div>
+            <div className="rounded-md border border-maze-dfs/40 p-2 space-y-1">
+              <div className="text-[10px] uppercase tracking-wider text-maze-dfs font-bold">DFS</div>
+              <div className="text-xs text-muted-foreground">Visited: <span className="text-foreground font-bold">{compareResult.dfsVisited}</span></div>
+              <div className="text-xs text-muted-foreground">Path: <span className="text-foreground font-bold">{compareResult.dfsPath}</span></div>
+            </div>
+          </div>
+          <div className="text-center text-xs text-muted-foreground italic">{verdict}</div>
+        </Card>
+      )}
 
       <GameControls onMove={move} disabled={won || bfsRunning} />
 
       <div className="flex flex-wrap gap-3 justify-center">
-        <Button onClick={solveBfs} disabled={bfsRunning} variant="outline" className="border-accent/40 text-accent hover:bg-accent/20">
+        <Button onClick={startBfsStepMode} disabled={bfsRunning} variant="outline" className="border-accent/40 text-accent hover:bg-accent/20">
           <Cpu className="h-4 w-4 mr-2" />
           Solve with BFS
+        </Button>
+        <Button onClick={compareBfsDfs} disabled={bfsRunning} variant="outline" className="border-maze-dfs/40 text-maze-dfs hover:bg-maze-dfs/20">
+          <GitCompare className="h-4 w-4 mr-2" />
+          Compare BFS vs DFS
         </Button>
         <Button onClick={resetLevel} variant="outline" className="border-secondary/40 text-secondary hover:bg-secondary/20">
           <RotateCcw className="h-4 w-4 mr-2" />
@@ -241,7 +404,9 @@ export default function MazeGame() {
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-maze-start inline-block" /> Start</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-maze-exit inline-block" /> Exit</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-maze-player inline-block" /> Player</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-maze-visited inline-block" /> BFS Visited</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-maze-visited inline-block" /> BFS</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-maze-dfs inline-block" /> DFS</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-maze-both inline-block" /> Both</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-maze-shortest inline-block" /> Shortest Path</span>
       </div>
 
