@@ -42,6 +42,8 @@
     --maze-exit: 0 80% 55%;
     --maze-player: 45 100% 60%;
     --maze-visited: 190 90% 45%;
+    --maze-dfs: 30 95% 55%;
+    --maze-both: 320 85% 60%;
     --maze-shortest: 50 100% 55%;
 
     --sidebar-background: 0 0% 98%;
