@@ -90,11 +90,12 @@ export function generateMaze(rows: number, cols: number): { grid: MazeGrid; star
   // Ensure exit is open
   grid[exit.row][exit.col] = 0;
 
-  // Ensure path to exit exists by checking BFS, if not open a corridor
+  // Ensure path to exit exists by checking BFS, if not carve a corridor between them
   if (!bfs(grid, start, exit)) {
-    let r = exit.row, c = exit.col;
-    while (r > start.row) { grid[r][c] = 0; r--; }
-    while (c > start.col) { grid[r][c] = 0; c--; }
+    let r = start.row, c = start.col;
+    while (r !== exit.row) { grid[r][c] = 0; r += r < exit.row ? 1 : -1; }
+    while (c !== exit.col) { grid[r][c] = 0; c += c < exit.col ? 1 : -1; }
+    grid[exit.row][exit.col] = 0;
   }
 
   return { grid, start, exit };
