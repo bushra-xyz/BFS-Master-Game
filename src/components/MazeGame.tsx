@@ -166,6 +166,51 @@ export default function MazeGame() {
 
       <GameStats steps={steps} time={time} bfsLength={bfsLength} score={score} />
 
+      {bfsLength !== null && steps > 0 && (
+        <div className="w-full max-w-md bg-card border border-border rounded-lg p-4 space-y-3">
+          <div className="font-display text-xs sm:text-sm tracking-wider text-center text-accent">
+            ⚔ You vs BFS ⚔
+          </div>
+          <div className="grid grid-cols-3 items-center gap-2 text-center">
+            <div>
+              <div className="text-[10px] uppercase text-muted-foreground tracking-wider">You</div>
+              <div className="text-2xl font-bold text-maze-player">{steps}</div>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {steps === bfsLength ? (
+                <span className="text-maze-player font-bold">TIE 🔥</span>
+              ) : steps < bfsLength ? (
+                <span className="text-primary font-bold">-{bfsLength - steps}</span>
+              ) : (
+                <span className="text-destructive font-bold">+{steps - bfsLength}</span>
+              )}
+              <div className="text-[10px] mt-1">step diff</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase text-muted-foreground tracking-wider">BFS</div>
+              <div className="text-2xl font-bold text-accent">{bfsLength}</div>
+            </div>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden flex">
+            <div
+              className="bg-maze-player transition-all duration-500"
+              style={{ width: `${(Math.min(steps, bfsLength) / Math.max(steps, bfsLength)) * 50}%` }}
+            />
+            <div
+              className="bg-accent transition-all duration-500"
+              style={{ width: `${50 + (1 - Math.min(steps, bfsLength) / Math.max(steps, bfsLength)) * 50}%` }}
+            />
+          </div>
+          <div className="text-center text-xs text-muted-foreground">
+            {steps === bfsLength
+              ? "You matched the optimal path! 🎯"
+              : steps < bfsLength
+              ? "Whoa, you beat BFS? Impossible 🤔"
+              : `You took ${steps - bfsLength} extra step${steps - bfsLength === 1 ? "" : "s"} (${Math.round(((steps - bfsLength) / bfsLength) * 100)}% longer)`}
+          </div>
+        </div>
+      )}
+
       <MazeGrid
         grid={mazeData.grid}
         start={mazeData.start}
