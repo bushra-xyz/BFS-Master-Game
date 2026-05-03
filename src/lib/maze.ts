@@ -10,6 +10,19 @@ const DIRECTIONS = [
 ];
 
 export function generateMaze(rows: number, cols: number): { grid: MazeGrid; start: Position; exit: Position } {
+  const minimumInterestingPath = rows + cols;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const maze = buildMaze(rows, cols);
+    const solution = bfs(maze.grid, maze.start, maze.exit);
+    if (!solution || solution.path.length - 1 > minimumInterestingPath || attempt === 7) {
+      return maze;
+    }
+  }
+
+  return buildMaze(rows, cols);
+}
+
+function buildMaze(rows: number, cols: number): { grid: MazeGrid; start: Position; exit: Position } {
   // Start with all walls
   const grid: MazeGrid = Array.from({ length: rows }, () => Array(cols).fill(1) as CellType[]);
 
